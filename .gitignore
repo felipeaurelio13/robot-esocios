@@ -1,0 +1,32 @@
+# Virtual Environment
+venv/
+env/
+*.venv
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Configuration files
+.env
+*.env.*
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# macOS specific files
+.DS_Store
+
+# IDE specific files
+.idea/
+.vscode/
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage .env
+actualizacion-padron-b0c0035f9580.json

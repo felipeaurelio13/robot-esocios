@@ -1,0 +1,106 @@
+/* static/css/pdf_report_style.css */
+
+@font-face {
+    font-family: 'DejaVu Sans'; /* Fuente común que soporta muchos caracteres */
+    src: url('fonts/DejaVuSans.ttf'); /* Asegúrate de tener la fuente aquí o usa una del sistema */
+}
+
+body {
+    font-family: 'DejaVu Sans', sans-serif;
+    font-size: 10pt;
+    line-height: 1.4;
+    color: #333;
+}
+
+h1, h2, h3 {
+    font-weight: bold;
+    color: #1a1a1a;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    page-break-after: avoid; /* Evitar saltos de página después de títulos */
+}
+
+h1 {
+    font-size: 18pt;
+    text-align: center;
+    margin-bottom: 1em;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 0.5em;
+}
+
+h2 {
+    font-size: 14pt;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.3em;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1em;
+    page-break-inside: avoid; /* Intentar mantener tablas en una sola página */
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: top;
+}
+
+thead th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+section {
+    margin-bottom: 1.5em;
+    page-break-before: auto;
+}
+
+.summary p, .matches p {
+    margin-bottom: 0.5em;
+}
+
+/* --- Configuración de página, encabezados y pies --- */
+@page {
+    size: A4; /* Tamaño de página */
+    margin: 1.5cm; /* Márgenes */
+
+    /* Definir contenido del pie de página */
+    @bottom-center {
+        content: element(footer);
+    }
+    
+    /* Podrías añadir un encabezado si lo necesitas */
+    /* @top-center {
+        content: element(header);
+    } */
+}
+
+/* Estilos para el pie de página */
+footer {
+    position: running(footer); /* Hace que el footer se repita en cada página */
+    text-align: center;
+    font-size: 8pt;
+    color: #666;
+}
+
+/* Clases especiales para numeración de página (WeasyPrint) */
+.page-number .page::before {
+    content: counter(page); /* Número de página actual */
+}
+
+.page-number .topage::before {
+    content: counter(pages); /* Total de páginas */
+}
+
+/* Podrías añadir estilos específicos para diferencias/coincidencias */
+.differences td:nth-child(3), .differences td:nth-child(4) {
+    /* Estilo para resaltar valores diferentes */
+    background-color: rgba(255, 0, 0, 0.05); 
+} 

@@ -1,0 +1,397 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+    color: #333;
+    padding-top: 5rem;
+}
+
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.card {
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    margin-bottom: 20px;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    font-weight: 600;
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+.footer {
+    margin-top: 50px;
+    padding: 20px 0;
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+}
+
+.dashboard-stats {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.stat-card {
+    text-align: center;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    color: white;
+}
+
+.stat-card.primary {
+    background-color: #0d6efd;
+}
+
+.stat-card.success {
+    background-color: #198754;
+}
+
+.stat-card.warning {
+    background-color: #ffc107;
+    color: #333;
+}
+
+.stat-card.danger {
+    background-color: #dc3545;
+}
+
+.stat-card h3 {
+    font-size: 2rem;
+    margin-bottom: 5px;
+}
+
+.stat-card p {
+    margin-bottom: 0;
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.file-upload-container {
+    border: 2px dashed #0d6efd;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    background-color: #eef2ff;
+    cursor: pointer;
+}
+
+.file-upload-container:hover {
+    background-color: #dbe4ff;
+}
+
+.file-upload-container i {
+    font-size: 3rem;
+    color: #0d6efd;
+    margin-bottom: 1rem;
+}
+
+.comparison-result {
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.comparison-result.match {
+    background-color: rgba(25, 135, 84, 0.1);
+    border-left: 4px solid #198754;
+}
+
+.comparison-result.mismatch {
+    background-color: rgba(220, 53, 69, 0.1);
+    border-left: 4px solid #dc3545;
+}
+
+.difference-item {
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    background-color: #fff;
+    border-left: 3px solid #dc3545;
+}
+
+.difference-item.critical {
+    border-left-color: #dc3545;
+}
+
+.difference-item.warning {
+    border-left-color: #ffc107;
+}
+
+.template-card {
+    cursor: pointer;
+}
+
+.template-card .card-body {
+    padding: 20px;
+}
+
+.template-card .template-icon {
+    font-size: 24px;
+    margin-bottom: 10px;
+    color: #0d6efd;
+}
+
+.template-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.loading-spinner {
+    display: none;
+    text-align: center;
+    padding: 20px;
+}
+
+.loading-spinner i {
+    font-size: 48px;
+    color: #0d6efd;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Estilos para la tabla de comparación */
+.comparison-table pre.config-value {
+    background-color: #e9ecef;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    max-height: 200px; /* Limitar altura para scroll */
+    overflow-y: auto;
+    white-space: pre-wrap; /* Ajustar líneas largas */
+    word-break: break-all; /* Romper palabras largas si es necesario */
+    font-family: monospace;
+    font-size: 0.85em;
+}
+
+.comparison-table .diff-row td {
+    vertical-align: middle;
+}
+
+/* Estilos específicos para tipos de diferencia (opcional) */
+.comparison-table .diff-type-elemento_faltante td:nth-child(5) pre.config-value, /* Columna Actual */
+.comparison-table .diff-type-campo_faltante_en_actual td:nth-child(5) pre.config-value {
+    background-color: #fff3cd; /* Fondo amarillo claro para indicar faltante en actual */
+}
+
+.comparison-table .diff-type-elemento_sobrante td:nth-child(4) pre.config-value, /* Columna Esperado */
+.comparison_table .diff-type-campo_sobrante_en_actual td:nth-child(4) pre.config-value {
+    background-color: #fff3cd; /* Fondo amarillo claro para indicar sobrante en actual */
+}
+
+.comparison-table .diff-severity-critical td {
+    border-left: 3px solid #dc3545 !important; /* Borde rojo para crítico */
+}
+
+.comparison-table .diff-severity-warning td {
+    border-left: 3px solid #ffc107 !important; /* Borde amarillo para warning */
+}
+
+/* Estilo específico para el contenedor del gráfico del dashboard */
+#revision-chart-container {
+    min-height: 300px; /* Ajusta según sea necesario, > altura del canvas */
+    display: flex; /* Ayuda a centrar el canvas si es más pequeño */
+    align-items: center;
+    justify-content: center;
+}
+
+/* Estilos para validación de opciones de preguntas */
+.card.border-danger .card-header {
+    background-color: #dc3545;
+    color: white;
+    font-weight: 500;
+}
+
+.validation-options-card .list-group-item {
+    transition: background-color 0.2s ease;
+}
+
+.validation-options-card .list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+.validation-options-card .badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.validation-options-card .bi-question-circle-fill {
+    color: #dc3545;
+    font-size: 1.25rem;
+}
+
+/* Animación para la validación */
+@keyframes highlight-item {
+    0% { background-color: rgba(220, 53, 69, 0.1); }
+    50% { background-color: rgba(220, 53, 69, 0.2); }
+    100% { background-color: rgba(220, 53, 69, 0.1); }
+}
+
+.validation-highlight {
+    animation: highlight-item 2s ease;
+}
+
+/* === Estilos para el Grid de Comparación Interactivo === */
+#question-comparison-container {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr; /* Columna # auto, Esperado y Actual dividen el resto */
+  gap: 4px; /* Espacio entre celdas */
+  align-items: stretch; /* Estirar celdas para que tengan la misma altura */
+  margin-top: 10px; /* Espacio sobre el grid */
+}
+
+.comparison-cell {
+  border: 1px solid #dee2e6;
+  padding: 8px;
+  background-color: #fff;
+  word-wrap: break-word; 
+  position: relative; 
+  min-height: 45px; 
+  display: flex; 
+  flex-direction: column; 
+  font-size: 0.85rem; /* Tamaño de fuente ligeramente más pequeño */
+  line-height: 1.4;
+}
+
+.comparison-cell .cell-content {
+    flex-grow: 1; 
+    overflow-y: auto; 
+    max-height: 160px; /* Limitar altura máxima con scroll */
+    white-space: pre-wrap; /* Conservar saltos de línea y espacios */
+}
+
+.comparison-cell .cell-content[contenteditable="true"]:focus {
+    outline: 2px solid #86b7fe; /* Resaltar al editar */
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Estilo para la columna de números */
+.comparison-cell[data-col="1"] {
+  background-color: #f8f9fa;
+  font-weight: bold;
+  text-align: center;
+  justify-content: center; 
+  align-items: center; 
+  min-width: 40px; 
+  max-width: 50px; /* Ancho máximo */
+  padding: 5px;
+}
+
+.grid-header {
+    font-weight: 600; /* Más grueso que bold normal */
+    background-color: #e9ecef;
+    padding: 10px 8px;
+    text-align: center;
+    border: 1px solid #ced4da;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #495057;
+}
+
+/* Estilos para resaltar diferencias (usados por JS) */
+.comparison-cell[data-col="1"].match-success {
+    background-color: #e6ffed; /* Verde muy claro */
+    border-left: 3px solid #28a745; /* Borde verde éxito */
+}
+
+/* NUEVO: Estilo para diferencias sutiles */
+.comparison-cell[data-col="1"].match-subtle-diff {
+    background-color: #fff9e6; /* Amarillo muy claro */
+    border-left: 3px solid #ffc107; /* Borde amarillo warning */
+}
+
+.comparison-cell[data-col="1"].match-fail {
+    background-color: #ffeeee; /* Rojo muy claro */
+    border-left: 3px solid #dc3545; /* Borde rojo fallo */
+}
+
+.comparison-cell[data-col="1"] .match-indicator {
+    font-weight: bold;
+    font-size: 1rem;
+    display: block; /* Ocupar su propia línea si es necesario */
+    margin-top: 3px; /* Espacio si está debajo del número */
+}
+
+/* Resaltado de palabras */
+.diff-word-missing {
+    background-color: rgba(255, 0, 0, 0.15); /* Rojo claro transparente */
+    text-decoration: line-through;
+    text-decoration-color: rgba(220, 53, 69, 0.7);
+    padding: 1px 0;
+}
+.diff-word-extra {
+    background-color: rgba(25, 135, 84, 0.15); /* Verde claro transparente */
+    font-weight: 500; /* Ligeramente más grueso */
+    padding: 1px 0;
+    border-bottom: 1px dashed #198754;
+}
+.diff-inline-marker {
+    display: inline-block;
+    width: 3px;
+    height: 1.1em;
+    background-color: orange;
+    vertical-align: text-bottom;
+    margin: 0 2px;
+    border-radius: 1px;
+    box-shadow: 0 0 3px orange;
+}
+
+/* Estilos para celdas de espacio en blanco */
+.blank-space-cell {
+    background-color: #f8f9fa;
+    border: 1px dashed #adb5bd;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; 
+}
+.blank-space-cell .cell-content {
+    font-style: italic;
+    color: #6c757d;
+    text-align: center;
+    flex-grow: 0;
+    padding: 5px 0; /* Más espacio vertical */
+}
+.blank-space-cell .cell-actions {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin-top: auto; /* Empujar acciones hacia abajo */
+    padding-bottom: 5px;
+    opacity: 0.6; 
+    transition: opacity 0.2s ease;
+}
+.blank-space-cell:hover .cell-actions {
+    opacity: 1;
+}
+.blank-space-cell .cell-actions button {
+    padding: 1px 5px;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    border-radius: 0.2rem;
+}
+/* === Fin Estilos Grid Comparación === */

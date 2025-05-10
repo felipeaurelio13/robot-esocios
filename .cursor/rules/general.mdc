@@ -1,0 +1,174 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 1. Legibilidad y Consistencia
+- Sigue PEP 8 para el estilo de código, con líneas de máximo 88 caracteres.
+- Usa nombres claros y descriptivos para variables, funciones y clases, reflejando su propósito (ej. `navigate_to_page`, `MeetingManager`).
+- Prefiere snake_case para nombres en Python (variables, funciones, módulos).
+- Mantén funciones y métodos cortos, con una sola responsabilidad (idealmente menos de 30 líneas).
+- Organiza el código en módulos según funcionalidad (ej. autenticación, navegación, reportes) dentro de `src/`.
+
+# 2. Documentación
+- Incluye docstrings en clases, funciones y métodos públicos, usando un formato claro (recomendado: Google):
+  ```python
+  def process_data(input: dict) -> dict:
+      """Procesa datos de entrada y devuelve un resultado estructurado.
+
+      Args:
+          input: Diccionario con datos a procesar.
+
+      Returns:
+          dict: Resultado procesado.
+      """
+  ```
+- Usa comentarios solo para explicar lógica compleja o decisiones no obvias.
+- Mantén documentación externa (ej. `docs/`) actualizada para reflejar cambios importantes.
+
+# 3. Manejo de Errores
+- Captura excepciones específicas en lugar de excepciones genéricas:
+  ```python
+  try:
+      response = requests.get(url, timeout=30)
+      response.raise_for_status()
+  except requests.RequestException as e:
+      logger.error(f"Error en solicitud HTTP: {e}")
+      raise
+  ```
+- Valida entradas antes de procesarlas:
+  ```python
+  if not input_data:
+      raise ValueError("Datos de entrada requeridos")
+  ```
+- Usa logging para registrar eventos y errores, evitando `print()`:
+  ```python
+  logger.info("Iniciando proceso")
+  logger.error("Error encontrado", exc_info=True)
+  ```
+
+# 4. Automatización con Selenium
+- Usa esperas explícitas (`WebDriverWait`) en lugar de pausas fijas (`time.sleep`):
+  ```python
+  from selenium.webdriver.support.ui import WebDriverWait
+  from selenium.webdriver.support import expected_conditions as EC
+  WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "element")))
+  ```
+- Libera recursos siempre (navegador, sesiones) en bloques `finally`:
+  ```python
+  try:
+      driver.get(url)
+  finally:
+      driver.quit()
+  ```
+- Minimiza interacciones con la UI, prefiriendo APIs cuando estén disponibles.
+
+# 5. Interacciones con APIs
+- Usa sesiones para solicitudes HTTP repetidas:
+  ```python
+  import requests
+  session = requests.Session()
+  response = session.get(url)
+  ```
+- Valida respuestas antes de procesarlas:
+  ```python
+  if response.status_code != 200:
+      logger.warning(f"Respuesta inválida: {response.status_code}")
+      return None
+  ```
+- Define tiempos de espera razonables:
+  ```python
+  requests.get(url, timeout=30)
+  ```
+
+# 6. Procesamiento de Datos
+- Usa estructuras de datos claras y consistentes (ej. diccionarios para JSON):
+  ```python
+  config = {"data": [], "metadata": {}}
+  ```
+- Valida datos antes de usarlos:
+  ```python
+  if not isinstance(data, dict):
+      raise TypeError("Se esperaba un diccionario")
+  ```
+- Prefiere bibliotecas estándar para parsing (ej. `json`, `csv`) y valida resultados:
+  ```python
+  import json
+  try:
+      parsed = json.loads(text)
+  except json.JSONDecodeError:
+      logger.error("JSON inválido")
+      return None
+  ```
+
+# 7. Logging
+- Configura logging con un formato claro:
+  ```python
+  import logging
+  logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+  logger = logging.getLogger(__name__)
+  ```
+- Usa niveles apropiados: `debug` para detalles, `info` para progreso, `warning` para problemas menores, `error` para fallos críticos.
+- Evita exponer datos sensibles en logs:
+  ```python
+  logger.info(f"Procesando usuario: {user_id[:4]}...")  # Ofusca datos
+  ```
+
+# 8. Pruebas
+- Escribe pruebas unitarias para lógica crítica en `tests/`:
+  ```python
+  import unittest
+  class TestExample(unittest.TestCase):
+      def test_function(self):
+          self.assertEqual(func(1), expected)
+  ```
+- Usa mocks para simular dependencias externas (ej. Selenium, APIs):
+  ```python
+  from unittest.mock import patch
+  @patch('requests.get')
+  def test_api_call(self, mock_get):
+      mock_get.return_value.status_code = 200
+      self.assertTrue(call_api())
+  ```
+- Ejecuta pruebas regularmente:
+  ```bash
+  python -m unittest discover tests
+  ```
+
+# 9. Configuración
+- Almacena configuraciones en archivos `.env`:
+  ```python
+  from dotenv import load_dotenv
+  import os
+  load_dotenv()
+  API_URL = os.getenv("API_URL")
+  ```
+- Evita credenciales en el código fuente.
+- Crea directorios necesarios antes de escribir archivos:
+  ```python
+  os.makedirs(output_dir, exist_ok=True)
+  ```
+
+# 10. Mantenimiento
+- Divide la lógica en funciones pequeñas y reutilizables.
+- Refactoriza código duplicado en utilidades comunes:
+  ```python
+  def parse_response(response):
+      return response.json() if response else None
+  ```
+- Usa control de versiones con mensajes de commit claros:
+  ```
+  feat: agregar validación de datos
+  fix: corregir manejo de excepciones
+  ```
+
+# 11. Rendimiento
+- Evita operaciones innecesarias en bucles (ej. abrir sesiones repetidamente).
+- Usa estructuras de datos eficientes para listas grandes (ej. listas para accionistas).
+- Cachea resultados de operaciones costosas:
+  ```python
+  from functools import lru_cache
+  @lru_cache(maxsize=100)
+  def fetch_data(key: str) -> dict:
+      return expensive_operation(key)
+  ```
