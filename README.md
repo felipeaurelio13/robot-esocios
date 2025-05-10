@@ -16,6 +16,7 @@ Este proyecto automatiza el proceso de creación de nuevas organizaciones en la 
 4.  [Estructura del Proyecto](#estructura-del-proyecto)
 5.  [Modo Headless](#modo-headless)
 6.  [Solución de Problemas](#solución-de-problemas)
+7.  [Control de Versiones](#control-de-versiones)
 
 ## Prerrequisitos
 *   Python 3.8 o superior
@@ -29,8 +30,8 @@ Sigue estos pasos para configurar el proyecto en tu máquina local:
 
 ### 1. Clonar el Repositorio
 ```bash
-git clone <URL_DEL_REPOSITORIO>
-cd <NOMBRE_DEL_DIRECTORIO_DEL_PROYECTO>
+git clone https://github.com/felipeaurelio13/robot-esocios.git
+cd robot-esocios
 ```
 
 ### 2. Crear un Entorno Virtual
@@ -152,3 +153,12 @@ Para controlar esto, establece la variable `HEADLESS_MODE` en tu archivo `.env`:
 *   **Archivos no encontrados**: Verifica que `logo-anef.png` e `Iniciosesion_esocios.png` estén en la raíz del proyecto.
 
 Para problemas más detallados, revisa los logs generados en la consola. Los errores suelen incluir capturas de pantalla (`.png`) guardadas en el directorio raíz del proyecto, que pueden ayudar a diagnosticar problemas con la interfaz de usuario.
+
+## Control de Versiones
+
+Este proyecto utiliza Git para el control de versiones y está alojado en GitHub.
+
+*   **Repositorio:** [https://github.com/felipeaurelio13/robot-esocios](https://github.com/felipeaurelio13/robot-esocios)
+*   **Branch principal:** `main`
+
+Se recomienda seguir un flujo de trabajo estándar de Git para las contribuciones (crear ramas para nuevas características o correcciones, hacer pull requests, etc.).
