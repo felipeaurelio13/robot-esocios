@@ -10,99 +10,99 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 from dotenv import load_dotenv
 from src.config import IMPLICIT_WAIT, PAGE_LOAD_TIMEOUT
+import logging
+
+# Configurar logger para este módulo
+logger_setup = logging.getLogger(__name__)
+if not logger_setup.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - WEBDRIVER_SETUP: %(message)s')
+    handler.setFormatter(formatter)
+    logger_setup.addHandler(handler)
+    logger_setup.setLevel(logging.INFO)
 
 # Load .env file
-load_dotenv()
+# load_dotenv() # Comentado o eliminado, se cargará en el runner principal
 
-def setup_webdriver():
+def setup_webdriver(headless_mode: bool):
     """
     Configura y devuelve una instancia del WebDriver de Chrome.
-    Lee el modo headless desde la variable de entorno HEADLESS_MODE.
+    Usa el modo headless provisto como argumento.
+
+    Args:
+        headless_mode (bool): True para ejecutar en modo headless, False para modo normal.
 
     Returns:
-        webdriver.Chrome: Instancia configurada del WebDriver.
+        webdriver.Chrome: Instancia configurada del WebDriver o None si falla.
     """
-    # Configurar opciones de Chrome
-    chrome_options = Options()
+    logger_setup.info(f"Función setup_webdriver llamada con headless_mode: {headless_mode} (Tipo: {type(headless_mode)})")
 
-    # Leer HEADLESS_MODE desde .env
-    headless_env = os.getenv("HEADLESS_MODE", "False").lower() == "true"
-
-    if headless_env:
-        chrome_options.add_argument("--headless=new")
-        print("INFO: Configurando Chrome en modo headless (desde .env).")
-    else:
-        print("INFO: Configurando Chrome en modo normal (no headless, desde .env).")
-    
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--window-size=1920,1080")
-    
     try:
-        print("INFO: Obteniendo/Instalando ChromeDriver...")
-        # 1. Obtener la ruta inicial devuelta por el manager
-        initial_driver_path = ChromeDriverManager().install()
-        print(f"INFO: Ruta inicial devuelta por manager: {initial_driver_path}")
-        
-        # 2. Determinar la ruta correcta al ejecutable
-        driver_executable_path = None
-        if os.path.isfile(initial_driver_path) and 'chromedriver' in os.path.basename(initial_driver_path) and 'THIRD_PARTY_NOTICES' not in initial_driver_path:
-            # Parece que devolvió directamente el ejecutable
-            driver_executable_path = initial_driver_path
-            print(f"INFO: Usando la ruta devuelta directamente como ejecutable: {driver_executable_path}")
-        elif 'THIRD_PARTY_NOTICES' in os.path.basename(initial_driver_path):
-            # Devolvió notices, construir ruta al binario
-            driver_dir_path = os.path.dirname(initial_driver_path)
-            potential_executable = os.path.join(driver_dir_path, "chromedriver")
-            if os.path.isfile(potential_executable):
-                print(f"WARN: ChromeDriverManager devolvió notices, usando path construido: {potential_executable}")
-                driver_executable_path = potential_executable
-            else:
-                raise FileNotFoundError(f"Manager devolvió notices, y no se encontró chromedriver en {potential_executable}")
+        chrome_options = Options()
+        if headless_mode:
+            chrome_options.add_argument("--headless=new")
+            logger_setup.info("Chrome configurado para ejecutarse en modo headless (nuevo).")
         else:
-            # Caso inesperado
-             raise FileNotFoundError(f"La ruta devuelta por ChromeDriverManager no parece ser válida: {initial_driver_path}")
+            logger_setup.info("Chrome configurado para ejecutarse en modo normal (con UI).")
+        
+        chrome_options.add_argument("--disable-gpu") # A menudo recomendado para headless
+        chrome_options.add_argument("--window-size=1920,1080") # Puede ayudar en algunos casos
+        chrome_options.add_argument("--no-sandbox") # Necesario en algunos entornos CI/Linux
+        chrome_options.add_argument("--disable-dev-shm-usage") # Supera problemas de recursos limitados
+        chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36")
 
-        # 3. Ahora que TENEMOS la ruta correcta, aplicar permisos
-        print(f"INFO: Asegurando permisos para: {driver_executable_path}")
+        logger_setup.info("Inicializando ChromeDriverManager...")
+        base_driver_path_info = ChromeDriverManager().install()
+        logger_setup.info(f"ChromeDriverManager().install() devolvió: {base_driver_path_info}")
+
+        # --- Lógica para determinar la ruta correcta al ejecutable --- 
+        # Esto es un workaround para el problema de que a veces se selecciona el archivo de notices.
+        if "THIRD_PARTY_NOTICES" in base_driver_path_info:
+            executable_path = os.path.join(os.path.dirname(base_driver_path_info), "chromedriver")
+            logger_setup.warning(f"ChromeDriverManager devolvió ruta a notices. Intentando ruta construida: {executable_path}")
+        elif os.path.isdir(base_driver_path_info) and not os.path.isfile(os.path.join(base_driver_path_info, "chromedriver")):
+            # Si devuelve un directorio (inesperado aquí pero por si acaso) y no es el ejecutable directo
+            # Esto necesitaría una lógica más compleja para encontrar el ejecutable dentro, pero es poco probable.
+            # Por ahora, si es un directorio, asumimos que install() falló en devolver el ejecutable.
+            # Intentamos adivinar basado en la estructura típica de caché de chromedriver-mac-arm64
+            potential_exe_path = os.path.join(base_driver_path_info, "chromedriver-mac-arm64", "chromedriver")
+            if os.path.exists(potential_exe_path):
+                 executable_path = potential_exe_path
+                 logger_setup.warning(f"ChromeDriverManager devolvió un directorio. Usando ruta construida: {executable_path}")
+            else: # Fallback a la ruta original, puede que falle pero es lo que tenemos
+                 executable_path = base_driver_path_info # O lanzar un error aquí
+                 logger_setup.error(f"ChromeDriverManager devolvió un directorio y no se pudo construir una ruta válida. Usando: {executable_path}")
+        else:
+            # Si no es notices y no es un directorio problemático, asumimos que es el ejecutable correcto.
+            executable_path = base_driver_path_info
+            logger_setup.info(f"Usando ruta devuelta por ChromeDriverManager como ejecutable: {executable_path}")
+        
+        if not os.path.isfile(executable_path):
+            logger_setup.error(f"La ruta al ejecutable determinada ({executable_path}) no es un archivo válido. WebDriver fallará.")
+            raise FileNotFoundError(f"ChromeDriver ejecutable no encontrado en {executable_path}")
+
+        # --- Añadir permisos de ejecución --- 
         try:
-            subprocess.run(['xattr', '-d', 'com.apple.quarantine', driver_executable_path], check=False, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-            # print(f"INFO: Intento de quitar cuarentena de {driver_executable_path}")
-        except FileNotFoundError:
-            pass # xattr no existe, no es macOS
-            # print(f"INFO: Comando xattr no encontrado, omitiendo cuarentena.")
-        except Exception as e:
-            print(f"WARN: No se pudo quitar cuarentena: {e}")
-        try:
-            st = os.stat(driver_executable_path)
+            logger_setup.info(f"Verificando/Estableciendo permisos de ejecución para: {executable_path}")
+            st = os.stat(executable_path)
             if not (st.st_mode & stat.S_IEXEC):
-                print(f"INFO: Añadiendo permiso ejecución a {driver_executable_path}")
-                os.chmod(driver_executable_path, st.st_mode | stat.S_IEXEC)
-            # else:
-            #     print(f"INFO: Permiso ejecución OK en {driver_executable_path}")
-        except Exception as e:
-            print(f"WARN: No se pudo asegurar permiso ejecución: {e}")
+                logger_setup.info(f"Añadiendo permiso de ejecución a {executable_path}")
+                os.chmod(executable_path, st.st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+            else:
+                logger_setup.info(f"Permiso de ejecución ya establecido para {executable_path}")
+        except Exception as e_perm:
+            logger_setup.error(f"Error al intentar establecer permisos de ejecución para {executable_path}: {e_perm}", exc_info=True)
+            # Continuar de todas formas, puede que falle por otras razones o que los permisos ya estén bien
+            # pero es una fuente común de problemas en macOS.
 
-    except Exception as e_manager:
-        print(f"ERROR CRÍTICO: Falló la obtención/preparación de ChromeDriver: {e_manager}")
-        raise
-
-    # 4. Crear el Service con la ruta ASEGURADA
-    print(f"INFO: Pasando ruta explícita al Service: {driver_executable_path}")
-    service = Service(executable_path=driver_executable_path)
-    
-    try:
-        print("INFO: Creando instancia de WebDriver...")
+        logger_setup.info(f"Usando ruta explícita para el servicio de ChromeDriver: {executable_path}")
+        service = Service(executable_path=executable_path)
+        
+        logger_setup.info("Creando instancia del WebDriver de Chrome...")
         driver = webdriver.Chrome(service=service, options=chrome_options)
-        print("INFO: WebDriver creado exitosamente.")
-    except Exception as e_create:
-        print(f"ERROR CRÍTICO: Falló la creación de webdriver.Chrome: {e_create}")
-        print(f"  Service path: {driver_executable_path}")
-        print(f"  Options: {chrome_options.arguments}")
-        raise
-    
-    driver.implicitly_wait(IMPLICIT_WAIT)
-    driver.set_page_load_timeout(PAGE_LOAD_TIMEOUT)
-    
-    return driver
+        logger_setup.info("WebDriver de Chrome creado exitosamente.")
+        return driver
+
+    except Exception as e:
+        logger_setup.error(f"Error al configurar el WebDriver de Chrome: {e}", exc_info=True)
+        return None

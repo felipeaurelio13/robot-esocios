@@ -1,18 +1,19 @@
 import logging
 import os
 import time
-from dotenv import load_dotenv # Ensure dotenv is loaded for this script too if .env is used directly here
+# from dotenv import load_dotenv # ELIMINAR o comentar esta línea si existe
 
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 
 # Assuming these modules/classes exist and are correctly structured
 from src.webdriver_setup import setup_webdriver # Assuming this function is available
 from src.auth_manager import AuthManager
-from src.config import EVOTING_USERNAME, EVOTING_PASSWORD # Credentials from config
+from src.config import EVOTING_USERNAME, EVOTING_PASSWORD, HEADLESS_MODE # Antes IS_HEADLESS_FROM_CONFIG
 from src.google_sheets_client import read_sheet_data, update_cell_in_sheet # Import the new function
 
 # Configure logging
@@ -164,27 +165,53 @@ def fill_organization_details(driver: WebDriver, org_name: str, parent_org_name:
             autocomplete_input_xpath = ".//div[contains(@class, 'MuiAutocomplete-root')]//input[@type='text']"
             autocomplete_input = parent_org_section.find_element(By.XPATH, autocomplete_input_xpath)
             
-            logger.info(f"Escribiendo '{search_term}' en el campo de Organización padre...")
-            autocomplete_input.clear()
-            autocomplete_input.send_keys(search_term)
-            time.sleep(1.5) # Aumentar ligeramente la pausa para que aparezcan las opciones
+            first_option_xpath = "//ul[@role='listbox']/li[1]"
+            max_retries = 3 # Podríamos aumentar esto si es necesario con la nueva técnica
+            selected_parent = False
 
-            # Esperar y hacer clic en la PRIMERA opción del desplegable.
-            # Las opciones de Material UI suelen estar en un ul con role="listbox".
-            # Queremos el primer 'li' dentro de ese 'ul'.
-            first_option_xpath = "//ul[@role='listbox']/li[1]" 
+            for attempt in range(max_retries):
+                logger.info(f"Intento {attempt + 1}/{max_retries} para seleccionar Organización Padre '{search_term}'...")
+                autocomplete_input.clear()
+                autocomplete_input.send_keys(search_term)
+                time.sleep(1.0) # Pausa inicial después de escribir el término completo
+
+                # Técnica de borrar y re-escribir último carácter (a partir del segundo intento)
+                if attempt > 0 and len(search_term) > 0: # Solo si hay algo que borrar y no es el primer intento
+                    logger.info(f"Aplicando técnica de re-escritura para '{search_term}' en intento {attempt + 1}.")
+                    # Borrar el último carácter
+                    autocomplete_input.send_keys(Keys.BACK_SPACE)
+                    time.sleep(0.5) # Pausa breve
+                    # Re-escribir el último carácter
+                    autocomplete_input.send_keys(search_term[-1])
+                    time.sleep(1.0) # Pausa después de re-escribir
+                else:
+                    # En el primer intento, ya se escribió y se hizo una pausa, ahora esperamos un poco más.
+                    time.sleep(1.0) # Pausa adicional en el primer intento (total 2s después de send_keys inicial)
+
+                try:
+                    # Aumentamos la espera individual para la opción, ya que las pausas son más explícitas
+                    parent_option = WebDriverWait(driver, 15).until( 
+                        EC.element_to_be_clickable((By.XPATH, first_option_xpath))
+                    )
+                    option_text = parent_option.text
+                    logger.info(f"Opción encontrada en desplegable: '{option_text}'. Haciendo clic...")
+                    parent_option.click()
+                    time.sleep(0.7)
+                    selected_parent = True
+                    logger.info(f"Organización padre '{search_term}' seleccionada exitosamente en intento {attempt + 1}.")
+                    break
+                except TimeoutException:
+                    logger.warning(f"Intento {attempt + 1}: No se encontró opción para '{search_term}' después de las pausas y/o re-escritura.")
+                    if attempt < max_retries - 1:
+                        logger.info("Reintentando...")
+                        # No es necesario un time.sleep(1) aquí ya que el bucle tiene pausas al inicio
+                    else:
+                        logger.error(f"No se pudo seleccionar la organización padre '{search_term}' después de {max_retries} intentos.")
+                        driver.save_screenshot(f"error_fill_parent_org_no_options_{time.strftime('%Y%m%d-%H%M%S')}.png")
+                        return False
             
-            logger.info(f"Esperando la primera opción en el desplegable usando XPath: {first_option_xpath}...")
-            try:
-                parent_option = WebDriverWait(driver, 15).until(
-                    EC.element_to_be_clickable((By.XPATH, first_option_xpath))
-                )
-                logger.info(f"Primera opción encontrada: '{parent_option.text}'. Haciendo clic...")
-                parent_option.click()
-                time.sleep(0.5) # Pequeña pausa después del clic
-            except TimeoutException:
-                logger.error(f"No se encontró ninguna opción en el desplegable para '{search_term}' después de escribir.")
-                driver.save_screenshot(f"error_fill_parent_org_no_options_{time.strftime('%Y%m%d-%H%M%S')}.png")
+            if not selected_parent:
+                logger.error(f"Fallo final al seleccionar la organización padre '{search_term}'.")
                 return False
 
         # --- Carga de Archivos ---
@@ -443,52 +470,69 @@ def submit_organization_form(driver: WebDriver, org_name: str) -> bool:
     """
     try:
         logger.info(f"Intentando enviar el formulario para la organización: {org_name}")
-        # El ID :rl: es dinámico. Usar XPath basado en tipo y texto.
         submit_button_xpath = "//button[@type='submit' and contains(normalize-space(), 'Agregar')]"
         
         submit_button = WebDriverWait(driver, 15).until(
             EC.element_to_be_clickable((By.XPATH, submit_button_xpath))
         )
-        submit_button.click()
+        # Scroll into view and click using JavaScript for potentially more reliability
+        driver.execute_script("arguments[0].scrollIntoView(true);", submit_button)
+        time.sleep(0.5) # Brief pause after scroll
+        driver.execute_script("arguments[0].click();", submit_button)
+        # submit_button.click() # Original click
         logger.info("Botón 'Agregar' clickeado.")
 
-        # Esperar la confirmación. Esto es la parte más incierta y necesitará ajuste.
-        # Opción 1: Redirección a la página de lista de organizaciones.
-        # Opción 2: Aparición de un mensaje de éxito (snackbar/toast).
-        # Opción 3: Desaparición de elementos clave del formulario (ej. el mismo botón de submit o el título de "Crear").
+        # URL esperada después de una creación exitosa (asumiendo /admin/ path)
+        # ESOCIOS_BASE_URL es "https://esocios.evoting.com"
+        expected_admin_redirect_url = f"{ESOCIOS_BASE_URL}/admin" 
+        # La URL original en la constante global era /superadmin
 
-        # Por ahora, intentaremos detectar una redirección a la página de organizaciones
-        # O, si nos quedamos en la misma URL (add), que aparezca un mensaje de éxito.
-        # Esta URL es a la que esperamos ser redirigidos tras un éxito.
-        expected_redirect_url = ESOCIOS_ORGANIZATIONS_URL 
-        
+        # Espera combinada para redirección o mensaje de éxito.
+        # Aumentamos el tiempo total de espera para la confirmación.
+        confirmation_timeout = 30 # segundos
+
         try:
-            WebDriverWait(driver, 25).until(EC.url_to_be(expected_redirect_url))
-            logger.info(f"Redirección a {expected_redirect_url} detectada. Asumiendo éxito para {org_name}.")
-            # Adicionalmente, podríamos verificar si la nueva organización aparece en la lista,
-            # pero eso añadiría complejidad ahora.
+            # Prioridad 1: Verificar redirección a la lista de organizaciones (/admin/organizations)
+            logger.info(f"Esperando redirección a una URL que contenga '/admin/organizations' (Timeout: {confirmation_timeout}s)")
+            WebDriverWait(driver, confirmation_timeout).until(
+                EC.url_contains("/admin/organizations")
+            )
+            # Adicionalmente, asegurarse de que no estamos en la página de 'add'
+            current_url_after_redirect = driver.current_url
+            if "/add" not in current_url_after_redirect:
+                logger.info(f"Redirección a '{current_url_after_redirect}' detectada (contiene '/admin/organizations' y no '/add'). Asumiendo éxito para {org_name}.")
+                return True
+            else:
+                logger.warning(f"Redirección a '{current_url_after_redirect}' pero aún contiene '/add'. Verificando mensaje de éxito.")
+
+        except TimeoutException:
+            current_url_at_timeout = driver.current_url
+            logger.warning(
+                f"No hubo redirección clara a '/admin/organizations' después de {confirmation_timeout}s. "
+                f"URL actual: {current_url_at_timeout}. Intentando buscar mensaje de éxito."
+            )
+
+        # Prioridad 2: Si no hubo redirección clara, buscar un mensaje de éxito en la página actual.
+        # Esto es útil si la creación es exitosa pero permanece en la misma página (quizás con formulario reseteado)
+        # o si la redirección fue a otra página que no es la lista principal pero muestra un éxito.
+        success_message_xpath = "//*[contains(@class, 'MuiAlert-filledSuccess') or @role='alert'][contains(normalize-space(), 'Organización creada') or contains(normalize-space(), 'éxito') or contains(normalize-space(), 'correctamente')]"
+        try:
+            # Usar un timeout más corto aquí, ya que la mayor parte del tiempo de confirmación ya pasó.
+            success_element = WebDriverWait(driver, 10).until( 
+                EC.visibility_of_element_located((By.XPATH, success_message_xpath))
+            )
+            logger.info(f"Mensaje de éxito encontrado en la página actual: '{success_element.text}'. Asumiendo éxito para {org_name}.")
             return True
         except TimeoutException:
-            # Si no hubo redirección, quizás hubo un error en la página o un mensaje de éxito.
-            current_url_after_submit = driver.current_url
-            logger.warning(f"No hubo redirección a {expected_redirect_url} después de 25s. URL actual: {current_url_after_submit}")
-            
-            # Intentar buscar un mensaje de éxito genérico (esto es muy especulativo)
-            # Los snackbars de Material UI a menudo tienen role="alert" o clases específicas.
-            success_message_xpath = "//*[contains(@class, 'MuiAlert-filledSuccess') or @role='alert'][contains(normalize-space(), 'Organización creada') or contains(normalize-space(), 'éxito') or contains(normalize-space(), 'correctamente')]"
-            try:
-                success_element = WebDriverWait(driver, 5).until(
-                    EC.visibility_of_element_located((By.XPATH, success_message_xpath))
-                )
-                logger.info(f"Mensaje de éxito encontrado: '{success_element.text}'. Asumiendo éxito para {org_name}.")
-                return True
-            except TimeoutException:
-                logger.error(f"No se detectó redirección ni mensaje de éxito claro para {org_name}. El formulario podría haber fallado o la UI es diferente.")
-                driver.save_screenshot(f"error_submit_no_confirmation_{org_name.replace(' ','_')}_{time.strftime('%Y%m%d-%H%M%S')}.png")
-                return False
+            logger.error(
+                f"No se detectó redirección a '/admin/organizations' ni un mensaje de éxito claro para {org_name} "
+                f"después de {confirmation_timeout + 10}s totales de espera."
+            )
+            driver.save_screenshot(f"error_submit_no_confirmation_{org_name.replace(' ','_')}_{time.strftime('%Y%m%d-%H%M%S')}.png")
+            return False
 
     except TimeoutException as e:
-        logger.error(f"Timeout esperando el botón 'Agregar' para {org_name}: {e}", exc_info=True)
+        logger.error(f"Timeout esperando el botón 'Agregar' o durante el proceso de envío para {org_name}: {e}", exc_info=True)
         driver.save_screenshot(f"error_submit_timeout_btn_{org_name.replace(' ','_')}_{time.strftime('%Y%m%d-%H%M%S')}.png")
         return False
     except Exception as e:
@@ -498,142 +542,138 @@ def submit_organization_form(driver: WebDriver, org_name: str) -> bool:
 
 def main_esocios_flow():
     """Función principal para el flujo de creación de organizaciones en E-Socios."""
-    # Cargar variables de entorno para asegurar que HEADLESS_MODE esté disponible para setup_webdriver
-    # Aunque setup_webdriver llama a load_dotenv(), llamarlo aquí también es seguro y explícito.
-    load_dotenv() 
-
     driver = None
     try:
         logger.info("Configurando WebDriver...")
-        # Llamada a setup_webdriver actualizada para no pasar el argumento 'headless'
-        driver = setup_webdriver() 
+        # Usar la variable HEADLESS_MODE importada de src.config
+        logger.info(f"Valor de HEADLESS_MODE (importado de src.config) en runner: {HEADLESS_MODE} (Tipo: {type(HEADLESS_MODE)})")
+
+        driver = setup_webdriver(headless_mode=HEADLESS_MODE) # Usar HEADLESS_MODE directamente
+        
         if not driver:
             logger.error("No se pudo configurar el WebDriver. Abortando.")
             return
 
         if not login_to_esocios(driver):
             logger.error("Fallo en el login de E-Socios. Abortando.")
-            # No se puede escribir en la hoja si el login falla y no hemos leído la hoja aún.
             return
         
-        logger.info("Login exitoso. Procediendo con los siguientes pasos...")
+        logger.info("Login exitoso. Procediendo...")
 
-        # 1. Leer datos del Google Sheet
-        # Estos podrían moverse a variables de entorno o a config.py
         spreadsheet_url_or_id = os.getenv("SPREADSHEET_URL_OR_ID")
         sheet_name = os.getenv("SHEET_NAME", "Slugs")
+        
+        # Definición de encabezados de columna
         slug_column_header = "Slug"
         org_name_column_header = "Nombre Organización"
         parent_org_column_header = "Organización padre"
-        status_column_index = 4 # Columna D para el estado
+        # Asume que la columna D (índice 4) se llamará "Estado Final" en el Sheet
+        # y la columna E (índice 5) se llamará "Estado Procesamiento"
+        final_status_column_header = "Estado Final" 
+        processing_status_column_header = "Estado Procesamiento"
+
+        # Índices de columna (1-indexed) para escribir en el Sheet
+        status_column_index = 4  # Columna D para el estado final (sin cambios)
+        processing_status_column_index = 5 # Columna E para el estado de "en proceso"
         
         logger.info(f"Leyendo datos desde Google Sheet ID: {spreadsheet_url_or_id}, Hoja: {sheet_name}")
         sheet_data = read_sheet_data(spreadsheet_url_or_id, sheet_name)
         
         if not sheet_data:
             logger.warning("No se encontraron datos en el Google Sheet o no se pudo acceder. Abortando.")
-            # No hay filas para actualizar aquí.
             return
 
         logger.info(f"Se encontraron {len(sheet_data)} filas de datos en el Google Sheet.")
 
-        # La navegación a la página de creación se hace una vez si es posible,
-        # y luego se reintenta por cada organización si falla o después de un éxito.
         initial_navigation_successful = navigate_to_create_organization_page(driver)
         if not initial_navigation_successful:
-            logger.error("Fallo inicial al navegar a la página de creación de organizaciones. Se intentará por organización.")
+            logger.error("Fallo inicial al navegar a la página de creación. Se intentará por organización.")
 
-        for i, row in enumerate(sheet_data):
-            current_row_in_sheet = i + 2 # i es 0-indexed, sheets son 1-indexed, +1 por el header
+        for i, row_data in enumerate(sheet_data):
+            current_row_in_sheet = i + 2 
             status_message = ""
 
-            # Siempre intentar navegar a la página de creación al inicio de cada iteración
-            # si la navegación inicial falló o después de procesar una organización.
-            if not initial_navigation_successful or i > 0: # i > 0 para re-navegar después de la primera
-                if not navigate_to_create_organization_page(driver):
-                    status_message = "Error: Fallo al navegar a la página de creación"
-                    logger.error(f"{status_message} para la fila {current_row_in_sheet}.")
-                    update_cell_in_sheet(spreadsheet_url_or_id, sheet_name, current_row_in_sheet, status_column_index, status_message)
-                    continue # Pasar a la siguiente fila
-                else:
-                    initial_navigation_successful = True # Se logró navegar para esta o una iteración futura
+            # Leer estados actuales de la fila desde los datos del sheet
+            final_status_value = str(row_data.get(final_status_column_header, "")).strip()
+            # processing_status_value = str(row_data.get(processing_status_column_header, "")).strip() # Opcional si queremos lógica más compleja con este estado
 
-            slug = row.get(slug_column_header)
-            org_name = row.get(org_name_column_header)
-            parent_org_name = row.get(parent_org_column_header)
+            # Condición 1: Saltar si la columna de estado final (D) ya tiene contenido
+            if final_status_value:
+                logger.info(f"Fila {current_row_in_sheet}: Ya tiene un estado final ('{final_status_value}'). Saltando.")
+                continue
+            
+            # Marcar la fila como "Iniciado" en la columna de estado de procesamiento (E)
+            update_cell_in_sheet(spreadsheet_url_or_id, sheet_name, current_row_in_sheet, processing_status_column_index, "Iniciado")
+            logger.info(f"Fila {current_row_in_sheet}: Marcada como 'Iniciado' en columna {processing_status_column_index}.")
+
+            # Re-navegar si es necesario
+            if not initial_navigation_successful or i > 0: 
+                if not navigate_to_create_organization_page(driver):
+                    status_message = "Error: Fallo al navegar a página de creación"
+                    logger.error(f"{status_message} para fila {current_row_in_sheet}.")
+                    update_cell_in_sheet(spreadsheet_url_or_id, sheet_name, current_row_in_sheet, status_column_index, status_message)
+                    # Opcional: Limpiar marca "Iniciado" o poner "Error Navegación" en columna E
+                    # update_cell_in_sheet(spreadsheet_url_or_id, sheet_name, current_row_in_sheet, processing_status_column_index, "Error Navegación")
+                    continue 
+                else:
+                    initial_navigation_successful = True
+
+            slug = row_data.get(slug_column_header)
+            org_name = row_data.get(org_name_column_header)
+            parent_org_name = row_data.get(parent_org_column_header)
             
             logger.info(f"Procesando fila {current_row_in_sheet} del sheet: Slug='{slug}', Nombre='{org_name}', Padre='{parent_org_name}'")
 
             if not slug or not org_name:
                 status_message = "Error: Datos faltantes (Slug o Nombre Organización)"
-                logger.warning(f"{status_message} en fila {current_row_in_sheet}. Slug: '{slug}', Nombre: '{org_name}'")
+                logger.warning(f"{status_message} en fila {current_row_in_sheet}.")
                 update_cell_in_sheet(spreadsheet_url_or_id, sheet_name, current_row_in_sheet, status_column_index, status_message)
+                update_cell_in_sheet(spreadsheet_url_or_id, sheet_name, current_row_in_sheet, processing_status_column_index, "Error Datos") # Actualizar estado en E
                 continue
             
-            logger.info(f"Comenzando procesamiento en E-Socios para la organización: {org_name} (Slug: {slug})")
-            
-            if not fill_organization_details(driver, org_name, parent_org_name):
-                status_message = f"Error: Fallo al rellenar detalles básicos para {org_name}"
-                logger.error(f"{status_message}. Saltando esta organización.")
-                update_cell_in_sheet(spreadsheet_url_or_id, sheet_name, current_row_in_sheet, status_column_index, status_message)
-                initial_navigation_successful = False # Forzar re-navegación
-                continue
-
-            if not configure_payment_features(driver):
-                status_message = f"Error: Fallo al configurar funcionalidades de pago para {org_name}"
-                logger.error(f"{status_message}. Saltando esta organización.")
-                update_cell_in_sheet(spreadsheet_url_or_id, sheet_name, current_row_in_sheet, status_column_index, status_message)
-                initial_navigation_successful = False # Forzar re-navegación
-                continue
-
-            additional_fields = [
-                {"name": "Apellido", "type": "texto"},
-                {"name": "Sexo", "type": "texto"},
-                {"name": "Región", "type": "texto"},
-                {"name": "Provincia", "type": "texto"},
-                {"name": "Comuna", "type": "texto"},
-                {"name": "RSU/RAF", "type": "numero"}
-            ]
-
-            all_additional_fields_added = True
-            for field_idx, field in enumerate(additional_fields):
-                if not add_additional_user_field(driver, field["name"], field["type"]):
-                    status_message = f"Error: Fallo al añadir campo adicional '{field['name']}' para {org_name}"
-                    logger.error(f"{status_message}. Se detiene la adición de más campos para esta organización.")
-                    all_additional_fields_added = False
-                    break
-            
-            if not all_additional_fields_added:
-                # El status_message ya se estableció en el bucle anterior
-                update_cell_in_sheet(spreadsheet_url_or_id, sheet_name, current_row_in_sheet, status_column_index, status_message)
-                initial_navigation_successful = False # Forzar re-navegación
-                continue
-
-            if not submit_organization_form(driver, org_name):
-                status_message = f"Error: Fallo al enviar formulario para {org_name}"
-                logger.error(f"{status_message}. Saltando esta organización.")
-                update_cell_in_sheet(spreadsheet_url_or_id, sheet_name, current_row_in_sheet, status_column_index, status_message)
-                initial_navigation_successful = False # Forzar re-navegación
-                continue
+            all_steps_successful = False
+            if fill_organization_details(driver, org_name, parent_org_name):
+                if configure_payment_features(driver):
+                    additional_fields = [
+                        {"name": "Apellido", "type": "texto"},
+                        {"name": "Sexo", "type": "texto"},
+                        {"name": "Región", "type": "texto"},
+                        {"name": "Provincia", "type": "texto"},
+                        {"name": "Comuna", "type": "texto"},
+                        {"name": "RSU/RAF", "type": "numero"}
+                    ]
+                    all_additional_fields_added = True
+                    for field_idx, field in enumerate(additional_fields):
+                        if not add_additional_user_field(driver, field["name"], field["type"]):
+                            status_message = f"Error: Fallo al añadir campo '{field['name']}' para {org_name}"
+                            all_additional_fields_added = False
+                            break
+                    if all_additional_fields_added:
+                        if submit_organization_form(driver, org_name):
+                            status_message = f"Éxito: Org '{org_name}' creada."
+                            all_steps_successful = True
+                        else:
+                            status_message = f"Error: Fallo al enviar form para {org_name}"
+                    # else: status_message ya está seteado por el fallo en add_additional_user_field
+                else:
+                    status_message = f"Error: Fallo al config. pago para {org_name}"
             else:
-                status_message = f"Éxito: Organización '{org_name}' creada y formulario enviado."
-                logger.info(status_message)
-                update_cell_in_sheet(spreadsheet_url_or_id, sheet_name, current_row_in_sheet, status_column_index, status_message)
-                initial_navigation_successful = False # Forzar re-navegación para la siguiente organización
+                status_message = f"Error: Fallo al rellenar detalles para {org_name}"
+
+            logger.info(f"Fila {current_row_in_sheet}: Resultado final - {status_message}")
+            update_cell_in_sheet(spreadsheet_url_or_id, sheet_name, current_row_in_sheet, status_column_index, status_message) # Columna D
+            update_cell_in_sheet(spreadsheet_url_or_id, sheet_name, current_row_in_sheet, processing_status_column_index, "Completado" if all_steps_successful else "Error Final") # Columna E
             
-        logger.info("Flujo de E-Socios completado para todas las filas del sheet.")
+            initial_navigation_successful = False # Forzar re-navegación para la siguiente org
+            
+        logger.info("Flujo de E-Socios completado para todas las filas procesables del sheet.")
 
     except Exception as e:
         logger.error(f"Error crítico en el flujo principal de E-Socios: {e}", exc_info=True)
-        # Aquí podría ser útil escribir un estado general de error si es posible, 
-        # pero no tenemos una fila específica a menos que el error ocurra dentro del bucle.
     finally:
         if driver:
             logger.info("Cerrando WebDriver de E-Socios.")
             driver.quit()
 
 if __name__ == '__main__':
-    # Asegurarse de que .env se carga si se usa (generalmente en el entrypoint principal de la app)
-    # from dotenv import load_dotenv
-    # load_dotenv() 
     main_esocios_flow() 
