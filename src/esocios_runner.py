@@ -520,8 +520,8 @@ def main_esocios_flow():
 
         # 1. Leer datos del Google Sheet
         # Estos podrían moverse a variables de entorno o a config.py
-        spreadsheet_url_or_id = "1TjnRUGeUVFKQ1q-u2lau51wpojfZhvIaO7q7dSntCJg" # Specific ID provided by user
-        sheet_name = "Slugs"
+        spreadsheet_url_or_id = os.getenv("SPREADSHEET_URL_OR_ID")
+        sheet_name = os.getenv("SHEET_NAME", "Slugs")
         slug_column_header = "Slug"
         org_name_column_header = "Nombre Organización"
         parent_org_column_header = "Organización padre"
