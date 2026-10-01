@@ -1,3 +1,5 @@
+> **Estado — MANTENCIÓN / AUTOMATIZACIÓN LEGACY (2026-10-01).** Bot conservado para uso puntual. Antes de ejecutarlo, validar selectores, credenciales y compatibilidad con la versión actual de E-Socios.
+
 # E-Socios Organization Creation Bot
 
 Este proyecto automatiza el proceso de creación de nuevas organizaciones en la plataforma E-Socios. Lee los datos de una hoja de cálculo de Google, inicia sesión en el panel de superadministrador de E-Socios, navega al formulario de creación de organizaciones y completa los detalles requeridos, incluyendo la carga de logotipos y la configuración de campos de usuario adicionales.
